@@ -1,8 +1,7 @@
-#include "Task1.h"
+#include <ilcplex/ilocplex.h>
 
 
-
-void Task1::Execute()
+int main()
 {
     IloEnv env;
     IloModel model(env);
@@ -14,7 +13,7 @@ void Task1::Execute()
     x2.setName("X2: Num of produced desks");
 
     // Con
-    IloRangeArray constraints(env);
+    IloRangeArray constraints{ env };
     constraints.add(x1 + 15.f / 11.f * x2 <= 150);
     constraints[0].setName("Constraint 1: from paint department");
 
@@ -26,14 +25,16 @@ void Task1::Execute()
     model.add(constraints);
 
     // Solver
-    IloCplex solver(model);
+    IloCplex solver{ model };
     solver.solve();
 
 
-    IloNumArray vals(env);
-    env.out() << "Solution status = " << solver.getStatus() << std::endl;
+    IloNumArray vals{ env };
+    env.out() << "\nSolution status = " << solver.getStatus() << std::endl;
     env.out() << "Solution value  = " << solver.getObjValue() << std::endl;
 
     env.out() << "X1 value: " << solver.getValue(x1) << std::endl;
     env.out() << "X2 value: " << solver.getValue(x2) << std::endl;
+
+    getchar();
 }

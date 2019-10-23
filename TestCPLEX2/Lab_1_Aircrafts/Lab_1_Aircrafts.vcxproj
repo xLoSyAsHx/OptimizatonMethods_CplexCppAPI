@@ -121,12 +121,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Source.cpp" />
-    <ClCompile Include="Task1.cpp" />
-    <ClCompile Include="TaskAirplanes.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="Task1.h" />
-    <ClInclude Include="TaskAirplanes.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

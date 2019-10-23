@@ -1,0 +1,30 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.572
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "1_TestCplex", "1_TestCplex\1_TestCplex.vcxproj", "{A98CC81D-B6E9-456C-BE39-2FA9F9EA15B8}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Lab_1_Aircrafts", "Lab_1_Aircrafts\Lab_1_Aircrafts.vcxproj", "{16F11232-D0A0-46C8-9AD2-9B9CA16047C8}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Lab_2_Aircrafts_Branch_and_Bounds", "Lab_2_Aircrafts_Branch_and_Bounds\Lab_2_Aircrafts_Branch_and_Bounds.vcxproj", "{83FF1F1A-506D-4657-A62E-567641D1FEDD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{16F11232-D0A0-46C8-9AD2-9B9CA16047C8}.Release|x64.ActiveCfg = Release|x64
+		{16F11232-D0A0-46C8-9AD2-9B9CA16047C8}.Release|x64.Build.0 = Release|x64
+		{83FF1F1A-506D-4657-A62E-567641D1FEDD}.Release|x64.ActiveCfg = Release|x64
+		{83FF1F1A-506D-4657-A62E-567641D1FEDD}.Release|x64.Build.0 = Release|x64
+		{A98CC81D-B6E9-456C-BE39-2FA9F9EA15B8}.Release|x64.ActiveCfg = Release|x64
+		{A98CC81D-B6E9-456C-BE39-2FA9F9EA15B8}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {FE819EDB-1EDF-4826-AC6E-B55EE1477017}
+	EndGlobalSection
+EndGlobal

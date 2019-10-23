@@ -1,17 +1,18 @@
-#include "TaskAirplanes.h"
+#include <ilcplex/ilocplex.h>
 
 
-void TaskAirplanes::Execute()
+const int iSize = 3;
+const int jSize = 4;
+
+int main()
 {
     IloEnv env;
     IloModel model(env);
 
-    // Variables
-    const int iSize = 3;
-    const int jSize = 4;
 
+    // Variables
     IloNumArray capacity{ env,      iSize, 50, 30, 20 };
-    IloNumArray numAircrafts{ env,  iSize, 27, 23, 23 };
+    IloNumArray numAircrafts{ env,  iSize,  5,  8, 10 };
     IloNumArray t_routes[] = {
         IloNumArray{env, jSize, 3, 2, 2, 1},
         IloNumArray{env, jSize, 4, 3, 3, 2},
@@ -23,7 +24,8 @@ void TaskAirplanes::Execute()
         IloNumArray{env, jSize, 600,   800,  800,  900},
     };
     IloNumArray penalty{ env,  jSize,   40,   50,  45,   70 };
-    IloNumArray d_goal{ env,  jSize,  1700,  200, 900, 1200 };
+    IloNumArray d_goal{ env,  jSize, 1000, 2000, 900, 1200 };
+
 
     // Decision variables
     IloNumVarArray X[] = {
@@ -45,7 +47,7 @@ void TaskAirplanes::Execute()
         for (int j = 0; j < jSize; ++j)
         {
             objectiveExpr -= c_costs[i][j] * t_routes[i][j] * Y[i][j]; // c * t * Y
-            objectiveExpr += capacity[i]   * t_routes[i][j] * penalty[j] * X[i][j]; // Q * t * p * X
+            objectiveExpr += capacity[i] * t_routes[i][j] * penalty[j] * X[i][j]; // Q * t * p * X
         }
     }
 

@@ -1,7 +1,7 @@
-#include <iostream>
+#include <ilcplex/ilocplex.h>
+
 #include <array>
 
-#include <ilcplex/ilocplex.h>
 
 const int iSize = 3;
 const int jSize = 4;
@@ -10,12 +10,6 @@ const IloNum eps = 1e-50;
 
 using DecVarArray3 = std::array<IloNumVarArray, 3>;
 using NumArray3 = std::array<IloNumArray, 3>;
-
-struct SolvConstr {
-    IloCplex solver;
-    IloExpr objectiveExpr;
-    IloRangeArray constraints;
-};
 
 void SolveWithBranchAndBounds(IloEnv& env, IloCplex& solver, DecVarArray3 &X, DecVarArray3 &Y, IloNum& bestObjVal, NumArray3& bestValsX, NumArray3& bestValsY);
 
@@ -166,14 +160,11 @@ PairIJ getDecisionVarWithMaxFractional(IloEnv& env, IloCplex& solver, DecVarArra
                 pairIJ.j = j;
             }
         }
-        vals.clear();
     }
 
     // If all X values is Integer - solution found. Need to stop
     if (maxVal == 0.0)
-    {
         isAllYInteger = true;
-    }
 
     return pairIJ;
 }
@@ -198,7 +189,6 @@ bool isXYSatisfyConstraints(IloEnv& env, IloCplex& solver, DecVarArray3 &X, DecV
 
 void SolveWithBranchAndBounds(IloEnv& env, IloCplex& solver, DecVarArray3 &X, DecVarArray3 &Y, IloNum& bestObjVal, NumArray3& bestValsX, NumArray3& bestValsY)
 {
-
     bool isAllYInteger = false;
     PairIJ pairIJ = getDecisionVarWithMaxFractional(env, solver, X, Y, isAllYInteger);
     IloNum maxVal = solver.getValue(Y[pairIJ.i][pairIJ.j]);
@@ -209,7 +199,7 @@ void SolveWithBranchAndBounds(IloEnv& env, IloCplex& solver, DecVarArray3 &X, De
         if (solver.getObjValue() > bestObjVal)
         {
             bestObjVal = solver.getObjValue();
-            env.out() << "\nbestObjVal: " << bestObjVal << std::endl;
+            env.out() << "\ncurrent best ObjValue: " << bestObjVal << std::endl;
 
             IloNumArray vals{ env };
             for (int i = 0; i < iSize; ++i)
@@ -232,25 +222,28 @@ void SolveWithBranchAndBounds(IloEnv& env, IloCplex& solver, DecVarArray3 &X, De
     }
     else if (isAllYInteger)
     {
+        throw "Something went wrong. All Y are integer but they are not satisfy constraints";
         return;
     }
 
+    // Create new model2 as copy of the solver model
     IloModel model2{ env };
     for (IloModel::Iterator it(solver.getModel()); it.ok(); ++it)
         model2.add(*it);
 
 
     // Solve child1 model
-    solver.getModel().add(Y[pairIJ.i][pairIJ.j] <= floor(maxVal));
+    solver.getModel().add(Y[pairIJ.i][pairIJ.j] <= floor(maxVal)); // Add new constraint: Y_withMaxFractionalPart <= floor(maxVal)
     bool isSolver1Sucseed = solver.solve();
     IloNum objValue1 = solver.getObjValue();
 
     // Solve child2 model
-    model2.add(Y[pairIJ.i][pairIJ.j] >= ceil(maxVal));
+    model2.add(Y[pairIJ.i][pairIJ.j] >= ceil(maxVal)); // Add new constraint: Y_withMaxFractionalPart >= ceil(maxVal)
 
     IloCplex solver2(model2);
     bool isSolver2Sucseed = solver2.solve();
     IloNum objValue2 = solver2.getObjValue();
+
 
     if (isSolver1Sucseed && objValue1 > bestObjVal)
         SolveWithBranchAndBounds(env, solver, X, Y, bestObjVal, bestValsX, bestValsY);
