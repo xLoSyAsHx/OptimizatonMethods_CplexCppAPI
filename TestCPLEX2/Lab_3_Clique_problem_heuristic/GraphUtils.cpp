@@ -4,7 +4,7 @@ using namespace GraphUtils;
 using std::cout;
 
 
-int Graph::loadFromFile(fs::path pathToFile)
+int Graph::loadFromFile(std::string pathToFile)
 {
     std::ifstream graphFile(pathToFile, std::ifstream::in);
     if (graphFile.is_open() == false)
@@ -62,21 +62,29 @@ std::vector<int>& ClolrisingHeuristic30::Apply(Graph & graph)
     std::sort(colorizeSeq.begin(), colorizeSeq.end(), [](auto& lhd, auto& rhd) {
         return lhd.numEdges > rhd.numEdges;
     });
-    colorizeSeq.erase(colorizeSeq.begin());
+    // colorizeSeq.erase(colorizeSeq.begin());
     colorizeSeq.pop_back();
 
     std::vector<Clique> vCliques(30);
-    for (int i = 0; i < 30; ++i)
+    for (int i = 0; i < 1; ++i)
     {
         colorizeGraph(graph, colorizeSeq);
 
         // Sort by color
+        /*
         std::sort(graph.m_nodes.begin(), graph.m_nodes.end(), [](auto& lhd, auto& rhd) {
             return lhd.color > rhd.color;
         });
+        */
 
-        vCliques[0] = std::move(findClique(graph));
-        
+        Clique c;
+        c.nodes.push_back(8);
+        c.nodes.push_back(15);
+        c.nodes.push_back(16);
+
+        std::vector<int> cliqueNeighbours;
+        std::vector<std::vector<int>> alreadyChecked;
+        localSearch(graph, c, cliqueNeighbours, alreadyChecked);
     }
 
     std::sort(vCliques.begin(), vCliques.end(), [](const auto& lhd, const auto& rhd) {
@@ -88,12 +96,12 @@ std::vector<int>& ClolrisingHeuristic30::Apply(Graph & graph)
 
 void ClolrisingHeuristic30::colorizeGraph(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, bool shuffle)
 {
-    std::random_device rd;
-    std::mt19937 g(rd());
-    std::shuffle(colorizeSeq.begin(), colorizeSeq.end(), g);
+    //std::shuffle(colorizeSeq.begin(), colorizeSeq.end(), g);
 
     if (shuffle)
     {
+        std::random_device rd;
+        std::mt19937 g(rd());
         std::shuffle(colorizeSeq.begin(), colorizeSeq.begin() + colorizeSeq.size() * 0.2, g);
     }
 
@@ -121,12 +129,252 @@ void ClolrisingHeuristic30::colorizeGraph(Graph & graph, std::vector<ValEdgeColo
     }
 }
 
-ClolrisingHeuristic30::Clique& ClolrisingHeuristic30::findClique(Graph & graph)
+void ClolrisingHeuristic30::localSearch(Graph& graph, Clique& clique, std::vector<int> cliqueNeighbours, std::vector<std::vector<int>>& alreadyChecked)
 {
+    if (cliqueNeighbours.size() == 0)
+    {
+        /* Initialize:
+         * For each node find candidates
+        */
+        for (auto cNodeInd : clique.nodes)
+        {
+            auto& cNode = graph.m_nodes[cNodeInd];
+            std::vector<int> candidates;
+
+            std::set_difference(cNode.edges.begin(), cNode.edges.end(),
+                clique.nodes.begin(), clique.nodes.end(),
+                std::inserter(candidates, candidates.begin()));
+
+            // If the number of node edges is less than (clique size - 1)
+            // therefore this node can't expand clique and we should take it into account in local search
+            std::remove_if(candidates.begin(), candidates.end(), [&graph, cliqueSizeMin1 = clique.nodes.size() - 1](const auto& val) {
+                std::cout << graph.m_nodes[val].edges.size() << "   " << cliqueSizeMin1 << "\n";
+                return graph.m_nodes[val].edges.size() < cliqueSizeMin1;
+            });
+
+            cliqueNeighbours.insert(cliqueNeighbours.begin(), candidates.begin(), candidates.end());
+            std::sort(cliqueNeighbours.begin(), cliqueNeighbours.end());
+            auto endIt = std::unique(cliqueNeighbours.begin(), cliqueNeighbours.end());
+            cliqueNeighbours.resize(std::distance(cliqueNeighbours.begin(), endIt));
+        }
+    }
+
+ 
+    // for (auto it = cliqueNeighbours.begin(); it != cliqueNeighbours.end(); )
+    //for (auto nodeToBeChecked : cliqueNeighbours)
+    for (int i = 0; i < cliqueNeighbours.size(); ++i)
+    {
+        int nodeToBeChecked = cliqueNeighbours[i];
+        int nodeToBeDeleted = canExpandClique(graph, clique, nodeToBeChecked);
+        if (nodeToBeDeleted != -1)
+        {
+            clique.nodes.erase(std::find(clique.nodes.begin(), clique.nodes.end(), nodeToBeDeleted));
+
+            //clique.nodes.insert(std::find(clique.nodes.begin(), clique.nodes.end(), *it), *it);
+            clique.nodes.push_back(nodeToBeChecked);
+            std::sort(clique.nodes.begin(), clique.nodes.end());
+
+            int node2ToBeAdded = canExpandWithoutDeleting(graph, clique, nodeToBeChecked);
+            if (node2ToBeAdded != -1)
+            {
+                // In this "if" we deleted "nodeToBeDeleted", added "*it" and can add "node2ToBeAdded" to increase current clique size
+                // Besides that, we need to update "cliqueNeighbours" and call "localSearch" for new clique
+                clique.nodes.push_back(node2ToBeAdded);
+
+                if (std::find(alreadyChecked.begin(), alreadyChecked.end(), clique.nodes) == alreadyChecked.end())
+                {
+                    auto it = std::find(cliqueNeighbours.begin(), cliqueNeighbours.end(), nodeToBeChecked);
+                    size_t newSize = std::distance(it + 1, cliqueNeighbours.end());
+                    std::copy(it + 1, cliqueNeighbours.end(), cliqueNeighbours.begin()); // We already check this nodes
+                    cliqueNeighbours.resize(newSize);
+
+                    cliqueNeighbours.erase(std::find(cliqueNeighbours.begin(), cliqueNeighbours.end(), node2ToBeAdded));
+
+                    std::vector<int> newNeighbours;
+                    std::set_difference(cliqueNeighbours.begin(), cliqueNeighbours.end(),
+                        graph.m_nodes[nodeToBeDeleted].edges.begin(), graph.m_nodes[nodeToBeDeleted].edges.end(),
+                        std::inserter(newNeighbours, newNeighbours.begin()));
+                    std::swap(cliqueNeighbours, newNeighbours);
+
+
+                    // ---------- TODO: need to optimize ----- Add new candidates
+                    {
+                        int cNodeInd = nodeToBeChecked;
+                        auto& cNode = graph.m_nodes[cNodeInd];
+                        std::vector<int> candidates;
+
+                        std::sort(clique.nodes.begin(), clique.nodes.end());
+                        std::set_difference(cNode.edges.begin(), cNode.edges.end(),
+                            clique.nodes.begin(), clique.nodes.end(),
+                            std::inserter(candidates, candidates.begin()));
+
+                        // If the number of node edges is less than (clique size - 1)
+                        // therefore this node can't expand clique and we should take it into account in local search
+                        std::remove_if(candidates.begin(), candidates.end(), [&graph, cliqueSizeMin1 = clique.nodes.size() - 1](const auto& val) {
+                            return graph.m_nodes[val].edges.size() < cliqueSizeMin1;
+                        });
+
+                        cliqueNeighbours.insert(cliqueNeighbours.begin(), candidates.begin(), candidates.end());
+                    }
+                    {
+                        int cNodeInd = node2ToBeAdded;
+                        auto& cNode = graph.m_nodes[cNodeInd];
+                        std::vector<int> candidates;
+
+                        std::sort(clique.nodes.begin(), clique.nodes.end());
+                        std::set_difference(cNode.edges.begin(), cNode.edges.end(),
+                            clique.nodes.begin(), clique.nodes.end(),
+                            std::inserter(candidates, candidates.begin()));
+
+                        // If the number of node edges is less than (clique size - 1)
+                        // therefore this node can't expand clique and we should take it into account in local search
+                        std::remove_if(candidates.begin(), candidates.end(), [&graph, cliqueSizeMin1 = clique.nodes.size() - 1](const auto& val) {
+                            return graph.m_nodes[val].edges.size() < cliqueSizeMin1;
+                        });
+
+                        cliqueNeighbours.insert(cliqueNeighbours.begin(), candidates.begin(), candidates.end());
+                    }
+                    // ----------
+
+                    std::sort(clique.nodes.begin(), clique.nodes.end());
+                    alreadyChecked.push_back(clique.nodes);
+                    localSearch(graph, clique, cliqueNeighbours, alreadyChecked);
+
+                    return; // We already found clique greater than clique on input, therefore no need to continue check neighbours
+                }
+            }
+            else
+            {
+                if (std::find(alreadyChecked.begin(), alreadyChecked.end(), clique.nodes) == alreadyChecked.end())
+                {
+                    std::vector<int> cliqueNeighboursPrev = cliqueNeighbours;
+
+                    auto it = std::find(cliqueNeighbours.begin(), cliqueNeighbours.end(), nodeToBeChecked);
+                    size_t newSize = std::distance(it + 1, cliqueNeighbours.end());
+                    std::copy(it + 1, cliqueNeighbours.end(), cliqueNeighbours.begin()); // We already check this nodes
+                    cliqueNeighbours.resize(newSize);
+
+                    std::vector<int> newNeighbours;
+                    std::set_difference(cliqueNeighbours.begin(), cliqueNeighbours.end(),
+                        graph.m_nodes[nodeToBeDeleted].edges.begin(), graph.m_nodes[nodeToBeDeleted].edges.end(),
+                        std::inserter(newNeighbours, newNeighbours.begin()));
+                    std::swap(cliqueNeighbours, newNeighbours);
+
+                    // ---------- TODO: need to optimize ----- Add new candidates
+                    {
+                        int cNodeInd = nodeToBeChecked;
+                        auto& cNode = graph.m_nodes[cNodeInd];
+                        std::vector<int> candidates;
+
+                        std::sort(clique.nodes.begin(), clique.nodes.end());
+                        std::set_difference(cNode.edges.begin(), cNode.edges.end(),
+                            clique.nodes.begin(), clique.nodes.end(),
+                            std::inserter(candidates, candidates.begin()));
+
+                        // If the number of node edges is less than (clique size - 1)
+                        // therefore this node can't expand clique and we should take it into account in local search
+                        std::remove_if(candidates.begin(), candidates.end(), [&graph, cliqueSizeMin1 = clique.nodes.size() - 1](const auto& val) {
+                            return graph.m_nodes[val].edges.size() < cliqueSizeMin1;
+                        });
+
+                        cliqueNeighbours.insert(cliqueNeighbours.begin(), candidates.begin(), candidates.end());
+                        std::sort(cliqueNeighbours.begin(), cliqueNeighbours.end());
+                        auto endIt = std::unique(cliqueNeighbours.begin(), cliqueNeighbours.end());
+                        cliqueNeighbours.resize(std::distance(cliqueNeighbours.begin(), endIt));
+                    }
+                    // ----------
+
+                    int prevCliqueSize = clique.nodes.size();
+                    std::sort(clique.nodes.begin(), clique.nodes.end());
+                    alreadyChecked.push_back(clique.nodes);
+                    localSearch(graph, clique, cliqueNeighbours, alreadyChecked);
+                    std::swap(cliqueNeighboursPrev, cliqueNeighbours);
+                    if (prevCliqueSize < clique.nodes.size())
+                        return;
+                }
+            }
+
+            clique.nodes.erase(std::find(clique.nodes.begin(), clique.nodes.end(), nodeToBeChecked));
+            //clique.nodes.insert(std::find(clique.nodes.begin(), clique.nodes.end(), nodeToBeDeleted), nodeToBeDeleted);
+            clique.nodes.emplace_back(nodeToBeDeleted);
+            std::sort(clique.nodes.begin(), clique.nodes.end());
+        }
+    }
+
+}
+
+int GraphUtils::ClolrisingHeuristic30::canExpandClique(Graph& graph, Clique& c, int nodeInd)
+{
+    int numOfAbsentNodes = 0;
+    int nodeToDelete = 0;
+
+    // Must be sorted
+    auto cNodeInd = c.nodes.begin();
+
+    /*
+    auto first1 = graph.m_nodes[nodeInd].edges.begin();
+    auto last1 = graph.m_nodes[nodeInd].edges.end();
+    auto first2 = c.nodes.begin();
+    auto last2 = c.nodes.end();
+    */
+    auto first1 = c.nodes.begin();
+    auto last1 = c.nodes.end();
+    auto first2 = graph.m_nodes[nodeInd].edges.begin();
+    auto last2 = graph.m_nodes[nodeInd].edges.end();
+
+    while (first1 != last1) {
+        if (first2 == last2) {
+            numOfAbsentNodes += last1 - first1;
+            nodeToDelete = *first1;
+            break;
+        }
+
+        if (*first1 < *first2) {
+            nodeToDelete = *first1;
+            first1++;
+            numOfAbsentNodes++;
+            if (numOfAbsentNodes > 1) return -1;
+
+        }
+        else {
+            if (!(*first2 < *first1)) {
+                ++first1;
+            }
+            ++first2;
+        }
+    }
+    //;
+
+    return (numOfAbsentNodes < 2) ? nodeToDelete : -1;
+}
+
+int GraphUtils::ClolrisingHeuristic30::canExpandWithoutDeleting(Graph& graph, Clique& c, int nodeInd)
+{
+    // All neighbours of newly added candidate which are not in the clique
+    std::vector<int> differences;
+    std::set_difference(graph.m_nodes[nodeInd].edges.begin(), graph.m_nodes[nodeInd].edges.end(),
+        c.nodes.begin(), c.nodes.end(), std::inserter(differences, differences.begin()));
+
+    if (differences.empty())
+        return -1;
+
+    for (auto candidate : differences) {
+        int nodeToBeDeleted = canExpandClique(graph, c, candidate);
+        if (nodeToBeDeleted == 0)
+            return candidate;
+    }
+
+    return -1;
+}
+
+void ClolrisingHeuristic30::findClique(Graph & graph, Clique& c)
+{
+    /*
     Clique c;
     c.nodes.push_back(graph.m_nodes[0].val);
     findCliqueReq(graph, graph.m_nodes[0].edges, c);
     return c;
+    */
 }
 
 void ClolrisingHeuristic30::findCliqueReq(Graph & graph, std::vector<int> vCandidates, ClolrisingHeuristic30::Clique& clique)

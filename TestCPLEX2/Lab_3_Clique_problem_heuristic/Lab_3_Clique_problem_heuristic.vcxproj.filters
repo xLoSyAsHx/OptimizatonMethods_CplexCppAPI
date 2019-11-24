@@ -26,6 +26,9 @@
     <None Include="keller4.clq">
       <Filter>Файлы ресурсов</Filter>
     </None>
+    <None Include="test.clq">
+      <Filter>Файлы ресурсов</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GraphUtils.h">
