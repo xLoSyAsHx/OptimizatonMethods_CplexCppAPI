@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.572
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29519.87
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "1_TestCplex", "1_TestCplex\1_TestCplex.vcxproj", "{A98CC81D-B6E9-456C-BE39-2FA9F9EA15B8}"
 EndProject
@@ -10,6 +10,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Lab_2_Aircrafts_Branch_and_Bounds", "Lab_2_Aircrafts_Branch_and_Bounds\Lab_2_Aircrafts_Branch_and_Bounds.vcxproj", "{83FF1F1A-506D-4657-A62E-567641D1FEDD}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Lab_3_Clique_problem_heuristic", "Lab_3_Clique_problem_heuristic\Lab_3_Clique_problem_heuristic.vcxproj", "{8F975BA3-1624-4773-845F-2D5403C7FAAC}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Lab_3_Clique_problem_CPLEX", "Lab_3_Clique_problem_CPLEX\Lab_3_Clique_problem_CPLEX.vcxproj", "{A761FD9C-BCE4-4023-BB5F-695C97C5BAC5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -51,6 +53,14 @@ Global
 		{8F975BA3-1624-4773-845F-2D5403C7FAAC}.Release|x64.Build.0 = Release|x64
 		{8F975BA3-1624-4773-845F-2D5403C7FAAC}.Release|x86.ActiveCfg = Release|Win32
 		{8F975BA3-1624-4773-845F-2D5403C7FAAC}.Release|x86.Build.0 = Release|Win32
+		{A761FD9C-BCE4-4023-BB5F-695C97C5BAC5}.Debug|x64.ActiveCfg = Debug|x64
+		{A761FD9C-BCE4-4023-BB5F-695C97C5BAC5}.Debug|x64.Build.0 = Debug|x64
+		{A761FD9C-BCE4-4023-BB5F-695C97C5BAC5}.Debug|x86.ActiveCfg = Debug|Win32
+		{A761FD9C-BCE4-4023-BB5F-695C97C5BAC5}.Debug|x86.Build.0 = Debug|Win32
+		{A761FD9C-BCE4-4023-BB5F-695C97C5BAC5}.Release|x64.ActiveCfg = Release|x64
+		{A761FD9C-BCE4-4023-BB5F-695C97C5BAC5}.Release|x64.Build.0 = Release|x64
+		{A761FD9C-BCE4-4023-BB5F-695C97C5BAC5}.Release|x86.ActiveCfg = Release|Win32
+		{A761FD9C-BCE4-4023-BB5F-695C97C5BAC5}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
