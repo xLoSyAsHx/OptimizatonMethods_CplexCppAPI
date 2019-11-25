@@ -29,6 +29,7 @@
     <None Include="test.clq">
       <Filter>Файлы ресурсов</Filter>
     </None>
+<<<<<<< HEAD
     <None Include="C125.9.clq">
       <Filter>Файлы ресурсов</Filter>
     </None>
@@ -44,6 +45,8 @@
     <None Include="brock200_4.clq">
       <Filter>Файлы ресурсов</Filter>
     </None>
+=======
+>>>>>>> draft_local_search_heuristic
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GraphUtils.h">

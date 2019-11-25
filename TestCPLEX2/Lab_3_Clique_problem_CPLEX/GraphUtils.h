@@ -5,7 +5,6 @@
 #include <sstream>
 #include <string>
 #include <fstream>
-#include <experimental/filesystem>
 
 #include <vector>
 #include <map>
@@ -26,8 +25,7 @@ namespace GraphUtils
 
     struct Graph
     {
-        int loadFromFile(fs::path pathToFile);
-		int fromGraph(Graph& graph, std::vector<int>& nodes);
+        int loadFromFile(std::string pathToFile);
 
         size_t m_numEdges;
         std::vector<Node> m_nodes;
@@ -39,7 +37,7 @@ namespace GraphUtils
         virtual std::vector<int>& Apply(Graph& graph) = 0;
     };
 
-    class ColorisingHeuristic : public HeuristicInterface
+    class ClolrisingHeuristic30 : public HeuristicInterface
     {
     public:
         virtual std::vector<int>& Apply(Graph & graph) override;
@@ -48,8 +46,8 @@ namespace GraphUtils
         struct ValEdgeColor
         {
             int val;
+            int numEdges;
             int color;
-			int numEdges;
         };
 
         struct Clique
@@ -59,9 +57,6 @@ namespace GraphUtils
         };
 
         void colorizeGraph(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, bool shuffle = false);
-
-        void findCliqueReq(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, Clique& clique, Clique& maxClique);
-
         void localSearch(Graph& graph, Clique& clique, std::vector<int> cliqueNeighbours, std::vector<std::vector<int>>& alreadyChecked);
 
         /*
@@ -71,6 +66,9 @@ namespace GraphUtils
         */
         int canExpandClique(Graph& graph, Clique& c, int nodeInd); 
         int canExpandWithoutDeleting(Graph& graph, Clique& c, int nodeInd); // return NodeInd to be added. -1 if can't
+
+        void findClique(Graph & graph, Clique & c);
+        void findCliqueReq(Graph & graph, std::vector<int> vCandidates, Clique& clique);
 
         int m_maxCliqueSize;
     };
