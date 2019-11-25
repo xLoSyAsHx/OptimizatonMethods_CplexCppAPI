@@ -72,7 +72,7 @@ int getDecisionVar(IloCplex& solver, IloNumVarArray& X, bool& isXsInteger)
     for (int i = 0; i < values.getSize(); i++) {
         IloNum floatPart = (values[i] - (long)values[i]);
 
-        if (floatPart > maxVal)
+        if (floatPart - maxVal > FLT_EPSILON)
         {
             maxVal = floatPart;
             decI = i;
