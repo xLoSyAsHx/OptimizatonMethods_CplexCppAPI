@@ -26,6 +26,7 @@ namespace GraphUtils
     struct Graph
     {
         int loadFromFile(fs::path pathToFile);
+		int fromGraph(Graph& graph, std::vector<int>& nodes);
 
         size_t m_numEdges;
         std::vector<Node> m_nodes;
@@ -37,7 +38,7 @@ namespace GraphUtils
         virtual std::vector<int>& Apply(Graph& graph) = 0;
     };
 
-    class ClolrisingHeuristic30 : public HeuristicInterface
+    class ColorisingHeuristic : public HeuristicInterface
     {
     public:
         virtual std::vector<int>& Apply(Graph & graph) override;
@@ -46,8 +47,8 @@ namespace GraphUtils
         struct ValEdgeColor
         {
             int val;
-            int numEdges;
             int color;
+			int numEdges;
         };
 
         struct Clique
@@ -57,8 +58,7 @@ namespace GraphUtils
         };
 
         void colorizeGraph(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, bool shuffle = false);
-        Clique& findClique(Graph & graph);
-        void findCliqueReq(Graph & graph, std::vector<int> vCandidates, Clique& clique);
+        void findCliqueReq(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, Clique& clique, Clique& maxClique);
 
         int m_maxCliqueSize;
     };
