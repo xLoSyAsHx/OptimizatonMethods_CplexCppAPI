@@ -10,10 +10,10 @@ int main(int argc, char** argv)
     if (graph.loadFromFile(argv[1]) != 0)
         return -1;
 
-    HeuristicInterface* heuristic = new ClolrisingHeuristic30;
-    int heuristicClique = heuristic->Apply(graph);
+    HeuristicInterface* heuristic = new ColorisingHeuristic;
+    std::vector<int> clique = heuristic->Apply(graph);
 
-    cout << "\nSize: " << heuristicClique;
+    cout << "\nSize: " << clique.size();
     getchar();
     return 0;
 }

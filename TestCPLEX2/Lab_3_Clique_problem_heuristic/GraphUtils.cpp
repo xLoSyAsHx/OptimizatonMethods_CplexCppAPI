@@ -6,7 +6,6 @@ using std::cout;
 
 clock_t start;
 
-
 int Graph::loadFromFile(fs::path pathToFile)
 {
     std::ifstream graphFile(pathToFile, std::ifstream::in);
@@ -74,7 +73,7 @@ int Graph::fromGraph(Graph& graph, std::vector<int>& nodes) {
 	return count;
 }
 
-int& ClolrisingHeuristic30::Apply(Graph & graph)
+std::vector<int>& ColorisingHeuristic::Apply(Graph & graph)
 {
     m_maxCliqueSize = 0;
 
@@ -91,30 +90,25 @@ int& ClolrisingHeuristic30::Apply(Graph & graph)
     });
     colorizeSeq.pop_back();
 
-    std::vector<Clique> vCliques(30);
-    //for (int i = 0; i < 30; ++i)
-    {
-        colorizeGraph(graph, colorizeSeq);
+    colorizeGraph(graph, colorizeSeq);
 
-        // Sort by color
-        std::sort(colorizeSeq.begin(), colorizeSeq.end(), [](auto& lhd, auto& rhd) {
-             return lhd.color > rhd.color;
-        });
+    // Sort by color
+    std::sort(colorizeSeq.begin(), colorizeSeq.end(), [](auto& lhd, auto& rhd) {
+        return lhd.color > rhd.color;
+    });
 
-		start = clock();
-		findCliqueReq(graph, colorizeSeq, vCliques[0], m_maxCliqueSize);
-		clock_t end = clock();
-		printf("\nTime: %f, finished.", (double)(end - start) / CLOCKS_PER_SEC);
-    }
+	start = clock();
+	Clique clique;
+	Clique maxClique;
+	findCliqueReq(graph, colorizeSeq, clique, maxClique);
+	clock_t end = clock();
+	printf("\nTime: %f, finished.", (double)(end - start) / CLOCKS_PER_SEC);
 
-	return m_maxCliqueSize;
+	return maxClique.nodes;
 }
 
-void ClolrisingHeuristic30::colorizeGraph(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, bool shuffle)
+void ColorisingHeuristic::colorizeGraph(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, bool shuffle)
 {
-
-    //std::shuffle(colorizeSeq.begin(), colorizeSeq.end(), g);
-
     if (shuffle)
     {
 		std::random_device rd;
@@ -159,7 +153,7 @@ void ClolrisingHeuristic30::colorizeGraph(Graph & graph, std::vector<ValEdgeColo
 }
 
 
-void ClolrisingHeuristic30::findCliqueReq(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, ClolrisingHeuristic30::Clique& clique, int& maxClique)
+void ColorisingHeuristic::findCliqueReq(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, ColorisingHeuristic::Clique& currentClique, ColorisingHeuristic::Clique& maxClique)
 {
 	colorizeGraph(graph, colorizeSeq);
 
@@ -172,26 +166,26 @@ void ClolrisingHeuristic30::findCliqueReq(Graph & graph, std::vector<ValEdgeColo
 
 		ValEdgeColor toClique = colorizeSeq[i];
 		if (toClique.val == 0 || colorizeSeq[i].color == 0) {
-			clique.nodes.pop_back();
+			currentClique.nodes.pop_back();
 			return;
 		}
-		clique.nodes.push_back(toClique.val);
+		currentClique.nodes.push_back(toClique.val);
 		colorizeSeq.erase(colorizeSeq.begin() + i);
-		if (colorizeSeq[i].color + clique.nodes.size() <= maxClique) {
-			clique.nodes.pop_back();
+		if (colorizeSeq[i].color + currentClique.nodes.size() <= maxClique.nodes.size()) {
+			currentClique.nodes.pop_back();
 			return;
 		}
 		Graph childGraph;
 		Node currentNode = graph.m_nodes[toClique.val];
-		//std::find(currentNode.edges.begin(), currentNode.edges.end(), toClique.val);
-		for (auto& el : clique.nodes) {
+
+		for (auto& el : currentClique.nodes) {
 			currentNode.edges.erase(std::remove(currentNode.edges.begin(), currentNode.edges.end(), el), currentNode.edges.end());
 		}
 		if (colorizeSeq[i].color == 0 || childGraph.fromGraph(graph, currentNode.edges) == 0) {
-			maxClique = std::max((int) clique.nodes.size(), maxClique);
+			maxClique.nodes = currentClique.nodes;
 			clock_t end = clock();
-			printf("\nTime: %f, clique: %d", (double)(end - start) / CLOCKS_PER_SEC, maxClique);
-			clique.nodes.pop_back();
+			printf("\nTime: %f, clique: %d", (double)(end - start) / CLOCKS_PER_SEC, maxClique.nodes.size());
+			currentClique.nodes.pop_back();
 			return;
 		}
 		std::vector<ValEdgeColor> childColorizeSeq(childGraph.m_nodes.size());
@@ -206,8 +200,8 @@ void ClolrisingHeuristic30::findCliqueReq(Graph & graph, std::vector<ValEdgeColo
 			return lhd.numEdges > rhd.numEdges;
 			});
 		childColorizeSeq.pop_back();
-		findCliqueReq(childGraph, childColorizeSeq, clique, maxClique);
-		clique.nodes.pop_back();
+		findCliqueReq(childGraph, childColorizeSeq, currentClique, maxClique);
+		currentClique.nodes.pop_back();
 		i--;
 	}
 

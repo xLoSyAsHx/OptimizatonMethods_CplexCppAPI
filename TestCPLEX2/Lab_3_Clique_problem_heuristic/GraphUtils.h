@@ -35,13 +35,13 @@ namespace GraphUtils
     class HeuristicInterface
     {
     public:
-        virtual int& Apply(Graph& graph) = 0;
+        virtual std::vector<int>& Apply(Graph& graph) = 0;
     };
 
-    class ClolrisingHeuristic30 : public HeuristicInterface
+    class ColorisingHeuristic : public HeuristicInterface
     {
     public:
-        virtual int& Apply(Graph & graph) override;
+        virtual std::vector<int>& Apply(Graph & graph) override;
 
     private:
         struct ValEdgeColor
@@ -58,8 +58,7 @@ namespace GraphUtils
         };
 
         void colorizeGraph(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, bool shuffle = false);
-        void findClique(Graph & graph , std::vector<ValEdgeColor>& colorizeSeq, Clique & clique, int& maxClique);
-        void findCliqueReq(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, Clique& clique, int& maxClique);
+        void findCliqueReq(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, Clique& clique, Clique& maxClique);
 
         int m_maxCliqueSize;
     };
