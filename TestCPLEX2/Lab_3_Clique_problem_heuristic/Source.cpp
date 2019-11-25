@@ -4,16 +4,16 @@
 using namespace GraphUtils;
 using std::cout;
 
-int main()
+int main(int argc, char** argv)
 {
     Graph graph;
-    if (graph.loadFromFile("test.clq") != 0)
+    if (graph.loadFromFile(argv[1]) != 0)
         return -1;
 
-    HeuristicInterface* heuristic = new ClolrisingHeuristic1;
-    std::vector<int> heuristicClique = heuristic->Apply(graph);
+    HeuristicInterface* heuristic = new ClolrisingHeuristic30;
+    int heuristicClique = heuristic->Apply(graph);
 
-    cout << "\nSize: " << heuristicClique.size();
+    cout << "\nSize: " << heuristicClique;
     getchar();
     return 0;
 }
