@@ -36,11 +36,11 @@ int main(int argc, char** argv)
     
 
     // Decision variables
-    IloNumVarArray X{ env, num_vertex, 0, 1, IloNumVar::Type::Float };
+    IloNumVarArray X{ env, num_vertex - 1, 0, 1, IloNumVar::Type::Float };
 
     // Objective
     IloExpr objectiveExpr{ env };
-    for (int i = 0; i < num_vertex; i++)
+    for (int i = 0; i < num_vertex - 1; i++)
         objectiveExpr += X[i];
 
     // Constraints
@@ -50,33 +50,33 @@ int main(int argc, char** argv)
     auto colorizeSeq = heuristicInterface->ColorizeGraph(graph);
 
     // Add initial constraints from colorised graph
-    int curColor = -1;
-    bool canCheckForAdd = false;
+    int curColor = colorizeSeq[0].color;
     std::vector<int> constraintInds;
+    constraintInds.emplace_back(colorizeSeq[0].val);
     for (auto& el : colorizeSeq)
     {
-        if (el.color != curColor)
+        if (el.color != curColor || el.val == colorizeSeq.back().val)
         {
-            if (canCheckForAdd)
+            if (el.val == colorizeSeq.back().val)
+                constraintInds.emplace_back(el.val);
+
+            std::vector<int> candidates = getCandidatesFromConstraintInds(graph, constraintInds);
+            if (candidates.empty())
+                continue;
+
+            IloNumExprArg newConstraintExpr = X[candidates[0] - 1];
+            for (int i = 1; i < candidates.size(); ++i)
             {
-                std::vector<int> candidates = getCandidatesFromConstraintInds(graph, constraintInds);
-                if (candidates.empty())
-                    continue;
-
-                IloNumExprArg newConstraintExpr = X[candidates[0] - 1];
-                for (int i = 1; i < candidates.size(); ++i)
-                {
-                    newConstraintExpr = newConstraintExpr + X[candidates[i] - 1];
-                    bool isValid = newConstraintExpr.isValid();
-                }
-
-                constraints.add(newConstraintExpr <= 1);
-                constraintInds.clear();
+                std::cout << candidates[i] << " ";
+                newConstraintExpr = newConstraintExpr + X[candidates[i] - 1];
+                bool isValid = newConstraintExpr.isValid();
             }
+
+            constraints.add(newConstraintExpr <= 1);
+            constraintInds.clear();
 
             curColor = el.color;
             constraintInds.emplace_back(el.val);
-            canCheckForAdd = true;
         }
         else
         {
@@ -152,7 +152,7 @@ int solveBnB(IloCplex& solver, IloNumVarArray& X)
             for (int i = 0; i < values.getSize(); i++)
                 if (values[i] > 0) {
                     clique.emplace_back(i);
-                    //env.out() << i << ", ";
+                    std::cout << i << ", ";
                 }
 
             return 0;
@@ -203,4 +203,6 @@ std::vector<int> getCandidatesFromConstraintInds(Graph & graph, std::vector<int>
     std::set_difference(g_allNodeIndexes.begin(), g_allNodeIndexes.end(),
         neighbours.begin(), neighbours.end(),
         std::inserter(candidates, candidates.begin()));
+
+    return candidates;
 }
