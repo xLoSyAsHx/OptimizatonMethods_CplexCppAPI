@@ -8,8 +8,8 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
-    <ProjectGuid>{A761FD9C-BCE4-4023-BB5F-695C97C5BAC5}</ProjectGuid>
-    <RootNamespace>Lab3CliqueproblemCPLEX</RootNamespace>
+    <ProjectGuid>{A97AEBF2-E50C-4540-9803-C776BA32C9D4}</ProjectGuid>
+    <RootNamespace>Lab4CliqueproblemBnCCPLEX</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
