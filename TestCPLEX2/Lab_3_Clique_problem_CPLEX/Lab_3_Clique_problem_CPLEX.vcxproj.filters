@@ -18,12 +18,12 @@
     <ClCompile Include="Source.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="GraphUtils.cpp">
+    <ClCompile Include="..\Lab_3_Clique_problem_heuristic\GraphUtils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="GraphUtils.h">
+    <ClInclude Include="..\Lab_3_Clique_problem_heuristic\GraphUtils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

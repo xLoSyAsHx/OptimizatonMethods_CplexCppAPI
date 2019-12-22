@@ -126,11 +126,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="GraphUtils.cpp" />
+    <ClCompile Include="..\Lab_3_Clique_problem_heuristic\GraphUtils.cpp" />
     <ClCompile Include="Source.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="GraphUtils.h" />
+    <ClInclude Include="..\Lab_3_Clique_problem_heuristic\GraphUtils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

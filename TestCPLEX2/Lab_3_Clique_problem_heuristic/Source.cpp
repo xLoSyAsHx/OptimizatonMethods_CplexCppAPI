@@ -10,6 +10,12 @@ using std::cout;
 
 int main(int argc, char** argv)
 {
+    if (argc != 2)
+    {
+        std::cout << "Please, enter file name\n";
+        return -1;
+    }
+
     auto start = std::chrono::system_clock::now();
     // Some computation here
     auto end = std::chrono::system_clock::now();
