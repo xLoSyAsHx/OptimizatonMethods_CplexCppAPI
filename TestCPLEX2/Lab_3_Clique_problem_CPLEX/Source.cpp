@@ -13,8 +13,14 @@ int solveBnB(IloCplex& solver, IloNumVarArray& X);
 
 int main(int argc, char** argv)
 {
+    if (argc != 2)
+    {
+        std::cout << "Please, enter file name\n";
+        return -1;
+    }
+
     Graph graph;
-    if (graph.loadFromFile("test.clq") != 0)
+    if (graph.loadFromFile(argv[1]) != 0)
         return -1;
 
     int num_vertex = graph.m_nodes.size();
@@ -47,17 +53,18 @@ int main(int argc, char** argv)
     // Solver
     IloCplex solver(model);
     solver.solve();
+    env.setOut(env.getNullStream());
+    solver.setOut(env.getNullStream());
 
     solveBnB(solver, X);
 
 
-    env.out() << "=========FINAL SOLUTION========" << std::endl;
-    env.out() << "Solution value  = " << objVal << std::endl;
-    env.out() << "Clique: ";
+    std::cout << "=========FINAL SOLUTION========" << std::endl;
+    std::cout << "Solution value  = " << objVal << std::endl;
+    std::cout << "Clique: ";
     for (int i = 0; i < clique.size(); i++)
-        env.out() << clique[i] << " ";
-    env.out() << std::endl;
-    getchar();
+        std::cout << clique[i] << " ";
+    std::cout << std::endl;
 }
 
 int getDecisionVar(IloCplex& solver, IloNumVarArray& X, bool& isXsInteger)
@@ -97,8 +104,8 @@ int solveBnB(IloCplex& solver, IloNumVarArray& X)
         if (solver.getObjValue() > objVal)
         {
             objVal = solver.getObjValue();
-            env.out() << "\n===================================Current Solution:" << std::endl;
-            env.out() << "=====================================objValue: " << objVal << std::endl;
+            std::cout << "\n===================================Current Solution:" << std::endl;
+            std::cout << "=====================================objValue: " << objVal << std::endl;
 
             IloNumArray values{ env };
             solver.getValues(values, X);

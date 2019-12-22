@@ -1,12 +1,11 @@
 #include "GraphUtils.h"
-#include <ctime>
 
 using namespace GraphUtils;
 using std::cout;
 
 clock_t start;
 
-int Graph::loadFromFile(fs::path pathToFile)
+int Graph::loadFromFile(std::string pathToFile)
 {
     std::ifstream graphFile(pathToFile, std::ifstream::in);
     if (graphFile.is_open() == false)
@@ -73,7 +72,7 @@ int Graph::fromGraph(Graph& graph, std::vector<int>& nodes) {
 	return count;
 }
 
-std::vector<int>& ColorisingHeuristic::Apply(Graph & graph)
+std::vector<int> ColorisingHeuristic::Apply(Graph & graph)
 {
     m_maxCliqueSize = 0;
 
@@ -90,20 +89,31 @@ std::vector<int>& ColorisingHeuristic::Apply(Graph & graph)
     });
 
     colorizeSeq.pop_back();
-
-    colorizeGraph(graph, colorizeSeq);
+    colorizeGraph(graph, colorizeSeq, true);
 
     // Sort by color
     std::sort(colorizeSeq.begin(), colorizeSeq.end(), [](auto& lhd, auto& rhd) {
         return lhd.color > rhd.color;
     });
 
-	start = clock();
-	Clique clique;
-	Clique maxClique;
-	findCliqueReq(graph, colorizeSeq, clique, maxClique);
-	clock_t end = clock();
-	printf("\nTime: %f, finished.", (double)(end - start) / CLOCKS_PER_SEC);
+    start = clock();
+    
+    Clique clique;
+    Clique maxClique;
+    int timeForSerachInSec = 10;
+    findCliqueReq(graph, colorizeSeq, clique, maxClique);
+    printf("\nTime: %f, finished.", (double)(clock() - start) / CLOCKS_PER_SEC);
+
+    /*
+    The idea was to firstly, launch findCliqueReq on several minutes, than cancel it by timeout,
+    launch localSearch to improve results and than launch findCliqueReq with new maxClique,
+    But local search can't improve already founded maxClique
+
+    std::vector<int> cliqueNeighbours;
+    std::vector<std::vector<int>> alreadyChecked;
+    localSearch(graph, maxClique, cliqueNeighbours, alreadyChecked);
+    printf("\nTime: %f, finished localSearch. Clique size %d", (double)(clock() - start) / CLOCKS_PER_SEC, maxClique.nodes.size());
+    */
 
 	return maxClique.nodes;
 }
@@ -114,7 +124,7 @@ void ColorisingHeuristic::colorizeGraph(Graph & graph, std::vector<ValEdgeColor>
     {
 		std::random_device rd;
 		std::mt19937 g(rd());
-        std::shuffle(colorizeSeq.begin(), colorizeSeq.begin() + colorizeSeq.size() * 0.2, g);
+        std::shuffle(colorizeSeq.begin(), colorizeSeq.begin() + colorizeSeq.size() * 0.4, g);
     }
 
 	for (auto& el : graph.m_nodes) {
@@ -170,9 +180,8 @@ void ColorisingHeuristic::localSearch(Graph& graph, Clique& clique, std::vector<
                 std::inserter(candidates, candidates.begin()));
 
             // If the number of node edges is less than (clique size - 1)
-            // therefore this node can't expand clique and we should take it into account in local search
+            // therefore this node can't expand clique and we shouldn't take it into account in local search
             std::remove_if(candidates.begin(), candidates.end(), [&graph, cliqueSizeMin1 = clique.nodes.size() - 1](const auto& val) {
-                std::cout << graph.m_nodes[val].edges.size() << "   " << cliqueSizeMin1 << "\n";
                 return graph.m_nodes[val].edges.size() < cliqueSizeMin1;
             });
 
@@ -183,22 +192,18 @@ void ColorisingHeuristic::localSearch(Graph& graph, Clique& clique, std::vector<
         }
     }
 
- 
-    // for (auto it = cliqueNeighbours.begin(); it != cliqueNeighbours.end(); )
-    //for (auto nodeToBeChecked : cliqueNeighbours)
     for (int i = 0; i < cliqueNeighbours.size(); ++i)
     {
         int nodeToBeChecked = cliqueNeighbours[i];
-        int nodeToBeDeleted = canExpandClique(graph, clique, nodeToBeChecked);
+        int nodeToBeDeleted = canExpandClique(graph, clique, nodeToBeChecked); // Try to expand by deleting 1 node in current clique
         if (nodeToBeDeleted != -1)
         {
             clique.nodes.erase(std::find(clique.nodes.begin(), clique.nodes.end(), nodeToBeDeleted));
 
-            //clique.nodes.insert(std::find(clique.nodes.begin(), clique.nodes.end(), *it), *it);
             clique.nodes.push_back(nodeToBeChecked);
             std::sort(clique.nodes.begin(), clique.nodes.end());
 
-            int node2ToBeAdded = canExpandWithoutDeleting(graph, clique, nodeToBeChecked);
+            int node2ToBeAdded = canExpandWithoutDeleting(graph, clique, nodeToBeChecked); // Try to add one more node to the new clique withour deleting
             if (node2ToBeAdded != -1)
             {
                 // In this "if" we deleted "nodeToBeDeleted", added "*it" and can add "node2ToBeAdded" to increase current clique size
@@ -319,7 +324,6 @@ void ColorisingHeuristic::localSearch(Graph& graph, Clique& clique, std::vector<
             }
 
             clique.nodes.erase(std::find(clique.nodes.begin(), clique.nodes.end(), nodeToBeChecked));
-            //clique.nodes.insert(std::find(clique.nodes.begin(), clique.nodes.end(), nodeToBeDeleted), nodeToBeDeleted);
             clique.nodes.emplace_back(nodeToBeDeleted);
             std::sort(clique.nodes.begin(), clique.nodes.end());
         }
@@ -391,7 +395,7 @@ int ColorisingHeuristic::canExpandWithoutDeleting(Graph& graph, Clique& c, int n
     return -1;
 }
 
-void ColorisingHeuristic::findCliqueReq(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, ColorisingHeuristic::Clique& currentClique, ColorisingHeuristic::Clique& maxClique)
+void ColorisingHeuristic::findCliqueReq(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, ColorisingHeuristic::Clique& currentClique, ColorisingHeuristic::Clique& maxClique, clock_t clockToCheck)
 {
 	colorizeGraph(graph, colorizeSeq);
 
@@ -400,7 +404,13 @@ void ColorisingHeuristic::findCliqueReq(Graph & graph, std::vector<ValEdgeColor>
 		return lhd.color > rhd.color;
 	});
 
-	for (int i = 0; i < colorizeSeq.size(); i++) {
+	for (int i = 0; i < colorizeSeq.size(); i++)
+    {
+
+        
+        if (clockToCheck != 0 && clock() > clockToCheck)
+            return;
+        
 
 		ValEdgeColor toClique = colorizeSeq[i];
 		if (toClique.val == 0 || colorizeSeq[i].color == 0) {
@@ -409,6 +419,11 @@ void ColorisingHeuristic::findCliqueReq(Graph & graph, std::vector<ValEdgeColor>
 		}
 		currentClique.nodes.push_back(toClique.val);
 		if (colorizeSeq[i + 1].color + currentClique.nodes.size() <= maxClique.nodes.size()) {
+            /*/
+            static int counter1 = 0;
+            counter1++;
+            if (counter1 % 1000 == 0) cout << "\nCounter1 == " << counter1;
+            */
 			currentClique.nodes.pop_back();
 			return;
 		}
@@ -416,15 +431,10 @@ void ColorisingHeuristic::findCliqueReq(Graph & graph, std::vector<ValEdgeColor>
 		Node currentNode = graph.m_nodes[toClique.val];
 
 		for (auto& el : currentClique.nodes) {
-			//currentNode.edges.erase(std::remove(currentNode.edges.begin(), currentNode.edges.end(), el), currentNode.edges.end());
-
 			auto pr = std::equal_range(std::begin(currentNode.edges), std::end(currentNode.edges), el);
 			currentNode.edges.erase(pr.first, pr.second);
-
-			//auto& v = currentNode.edges;
-			//auto itToDelete = std::lower_bound(v.begin(), v.end(), el);
-			//if (!(el < *itToDelete)) v.erase(itToDelete);
 		}
+
 		if (colorizeSeq[i + 1].color == 0 || childGraph.fromGraph(graph, currentNode.edges) == 0) {
 			maxClique.nodes = currentClique.nodes;
 			clock_t end = clock();
@@ -444,7 +454,7 @@ void ColorisingHeuristic::findCliqueReq(Graph & graph, std::vector<ValEdgeColor>
 			return lhd.numEdges > rhd.numEdges;
 			});
 		childColorizeSeq.pop_back();
-		findCliqueReq(childGraph, childColorizeSeq, currentClique, maxClique);
+		findCliqueReq(childGraph, childColorizeSeq, currentClique, maxClique, clockToCheck);
 		currentClique.nodes.pop_back();
 	}
 

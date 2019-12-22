@@ -5,7 +5,6 @@
 #include <sstream>
 #include <string>
 #include <fstream>
-#include <experimental/filesystem>
 
 #include <vector>
 #include <map>
@@ -13,7 +12,7 @@
 #include <algorithm>
 #include <iterator>
 
-namespace fs = std::experimental::filesystem;
+#include <ctime>
 
 namespace GraphUtils
 {
@@ -26,8 +25,8 @@ namespace GraphUtils
 
     struct Graph
     {
-        int loadFromFile(fs::path pathToFile);
-		int fromGraph(Graph& graph, std::vector<int>& nodes);
+        int loadFromFile(std::string pathToFile);
+        int fromGraph(Graph& graph, std::vector<int>& nodes);
 
         size_t m_numEdges;
         std::vector<Node> m_nodes;
@@ -36,13 +35,13 @@ namespace GraphUtils
     class HeuristicInterface
     {
     public:
-        virtual std::vector<int>& Apply(Graph& graph) = 0;
+        virtual std::vector<int> Apply(Graph& graph) = 0;
     };
 
     class ColorisingHeuristic : public HeuristicInterface
     {
     public:
-        virtual std::vector<int>& Apply(Graph & graph) override;
+        virtual std::vector<int> Apply(Graph & graph) override;
 
     private:
         struct ValEdgeColor
@@ -60,7 +59,7 @@ namespace GraphUtils
 
         void colorizeGraph(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, bool shuffle = false);
 
-        void findCliqueReq(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, Clique& clique, Clique& maxClique);
+        void findCliqueReq(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, Clique& clique, Clique& maxClique, clock_t clockToCheck = 0);
 
         void localSearch(Graph& graph, Clique& clique, std::vector<int> cliqueNeighbours, std::vector<std::vector<int>>& alreadyChecked);
 
