@@ -1,5 +1,8 @@
 #include <ilcplex\ilocplex.h>
 #include "..\Lab_3_Clique_problem_heuristic\GraphUtils.h"
+
+#include <memory>
+
 using namespace GraphUtils;
 using std::cout;
 
@@ -8,8 +11,12 @@ IloEnv env;
 IloModel model(env);
 std::vector<int> clique;
 
+std::vector<int> g_allNodeIndexes;
+
 
 int solveBnB(IloCplex& solver, IloNumVarArray& X);
+
+std::vector<int> getCandidatesFromConstraintInds(Graph& graph, std::vector<int> constraintInds);
 
 int main(int argc, char** argv)
 {
@@ -22,8 +29,11 @@ int main(int argc, char** argv)
     Graph graph;
     if (graph.loadFromFile(argv[1]) != 0)
         return -1;
+    for (int i = 1; i < graph.m_nodes.size(); ++i)
+        g_allNodeIndexes.emplace_back(i);
 
     int num_vertex = graph.m_nodes.size();
+    
 
     // Decision variables
     IloNumVarArray X{ env, num_vertex, 0, 1, IloNumVar::Type::Float };
@@ -36,13 +46,41 @@ int main(int argc, char** argv)
     // Constraints
     IloRangeArray constraints{ env };
 
-    for (int i = 0; i < num_vertex; i++) {
-        std::vector<int> edges = graph.m_nodes[i].edges;
-        for (int j = i + 1; j < num_vertex; j++) {
-            if (std::find(edges.begin(), edges.end(), j) == edges.end())
+    std::unique_ptr<ColorisingHeuristic> heuristicInterface{ new ColorisingHeuristic };
+    auto colorizeSeq = heuristicInterface->ColorizeGraph(graph);
+
+    // Add initial constraints from colorised graph
+    int curColor = -1;
+    bool canCheckForAdd = false;
+    std::vector<int> constraintInds;
+    for (auto& el : colorizeSeq)
+    {
+        if (el.color != curColor)
+        {
+            if (canCheckForAdd)
             {
-                constraints.add(X[i] + X[j] <= 1);
+                std::vector<int> candidates = getCandidatesFromConstraintInds(graph, constraintInds);
+                if (candidates.empty())
+                    continue;
+
+                IloNumExprArg newConstraintExpr = X[candidates[0] - 1];
+                for (int i = 1; i < candidates.size(); ++i)
+                {
+                    newConstraintExpr = newConstraintExpr + X[candidates[i] - 1];
+                    bool isValid = newConstraintExpr.isValid();
+                }
+
+                constraints.add(newConstraintExpr <= 1);
+                constraintInds.clear();
             }
+
+            curColor = el.color;
+            constraintInds.emplace_back(el.val);
+            canCheckForAdd = true;
+        }
+        else
+        {
+            constraintInds.emplace_back(el.val);
         }
     }
 
@@ -142,4 +180,27 @@ int solveBnB(IloCplex& solver, IloNumVarArray& X)
     if (rightSolved && rightObjValue > objVal)
         solveBnB(solver, X);
     model.remove(newConstraint);
+}
+
+std::vector<int> getCandidatesFromConstraintInds(Graph & graph, std::vector<int> constraintInds)
+{
+    std::vector<int> neighbours;
+    int neighbourSize = 0;
+    for (int nodeInd : constraintInds)
+        neighbourSize += graph.m_nodes[nodeInd].edges.size();
+    neighbours.resize(neighbourSize);
+
+    neighbourSize = 0;
+    for (int nodeInd : constraintInds)
+    {
+        auto& edges = graph.m_nodes[nodeInd].edges;
+        std::copy(edges.begin(), edges.end(), neighbours.begin() + neighbourSize);
+        neighbourSize += edges.size();
+    }
+
+    std::vector<int> candidates;
+    std::sort(neighbours.begin(), neighbours.end());
+    std::set_difference(g_allNodeIndexes.begin(), g_allNodeIndexes.end(),
+        neighbours.begin(), neighbours.end(),
+        std::inserter(candidates, candidates.begin()));
 }

@@ -21,6 +21,7 @@ namespace GraphUtils
         int val;
         int color = 0;
         std::vector<int> edges;
+        bool isNeighbour(int nodeInd) { return std::equal_range(edges.begin(), edges.end(), nodeInd).first != edges.end(); }
     };
 
     struct Graph
@@ -41,14 +42,11 @@ namespace GraphUtils
     class ColorisingHeuristic : public HeuristicInterface
     {
     public:
-        virtual std::vector<int> Apply(Graph & graph) override;
-
-    private:
         struct ValEdgeColor
         {
             int val;
             int color;
-			int numEdges;
+            int numEdges;
         };
 
         struct Clique
@@ -56,6 +54,11 @@ namespace GraphUtils
             std::vector<int> nodes;
             std::vector<ValEdgeColor> colorizeSeq;
         };
+
+        virtual std::vector<int> Apply(Graph & graph) override;
+        std::vector<ValEdgeColor> ColorizeGraph(Graph & graph);
+
+    private:
 
         void colorizeGraph(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, bool shuffle = false);
 

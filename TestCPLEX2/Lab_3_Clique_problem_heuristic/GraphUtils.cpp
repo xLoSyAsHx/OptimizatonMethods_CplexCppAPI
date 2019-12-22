@@ -118,30 +118,45 @@ std::vector<int> ColorisingHeuristic::Apply(Graph & graph)
 	return maxClique.nodes;
 }
 
+std::vector<ColorisingHeuristic::ValEdgeColor> ColorisingHeuristic::ColorizeGraph(Graph& graph)
+{
+    std::vector<ValEdgeColor> colorizeSeq(graph.m_nodes.size());
+    for (int i = 1; i < graph.m_nodes.size(); ++i)
+    {
+        colorizeSeq[i].val = i;
+        colorizeSeq[i].numEdges = graph.m_nodes[i].edges.size();
+    }
+
+    // Sort by size of neighbours from small to large
+    std::sort(colorizeSeq.begin(), colorizeSeq.end(), [](auto& lhd, auto& rhd) {
+        return lhd.numEdges > rhd.numEdges;
+    });
+
+    colorizeSeq.pop_back();
+    colorizeGraph(graph, colorizeSeq, true);
+
+    // Sort by color
+    std::sort(colorizeSeq.begin(), colorizeSeq.end(), [](auto& lhd, auto& rhd) {
+        return lhd.color > rhd.color;
+    });
+
+    return colorizeSeq;
+}
+
 void ColorisingHeuristic::colorizeGraph(Graph & graph, std::vector<ValEdgeColor>& colorizeSeq, bool shuffle)
 {
     if (shuffle)
     {
-		std::random_device rd;
-		std::mt19937 g(rd());
+        std::random_device rd;
+        std::mt19937 g(rd());
         std::shuffle(colorizeSeq.begin(), colorizeSeq.begin() + colorizeSeq.size() * 0.4, g);
     }
-
-	for (auto& el : graph.m_nodes) {
-		if (el.val != 0) {
-			el.color = 1;
-			if (colorizeSeq[0].val == 0) {
-				colorizeSeq[el.val].color = 1;
-			}
-			break;
-		}
-	}
    
     for (auto& el : colorizeSeq)
     {
-		if (el.numEdges == 0) {
-			return;
-		}
+        if (el.numEdges == 0) {
+            return;
+        }
         auto& curNode = graph.m_nodes[el.val];
         std::vector<int> existedColors;
         for (const auto& neighbour : curNode.edges)
