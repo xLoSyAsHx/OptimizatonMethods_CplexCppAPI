@@ -9,12 +9,14 @@ using std::cout;
 IloNum objVal{ 0 };
 IloEnv env;
 IloModel model(env);
+Graph graph;
 std::vector<int> clique;
 
 std::vector<int> g_allNodeIndexes;
-
+int upperBound;
 
 int solveBnB(IloCplex& solver, IloNumVarArray& X);
+void solveBnC(IloCplex& solver, IloNumVarArray& X);
 
 std::vector<int> getCandidatesFromConstraintInds(Graph& graph, std::vector<int> constraintInds);
 
@@ -26,7 +28,6 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    Graph graph;
     if (graph.loadFromFile(argv[1]) != 0)
         return -1;
     for (int i = 1; i < graph.m_nodes.size(); ++i)
@@ -67,7 +68,6 @@ int main(int argc, char** argv)
             IloNumExprArg newConstraintExpr = X[candidates[0] - 1];
             for (int i = 1; i < candidates.size(); ++i)
             {
-                std::cout << candidates[i] << " ";
                 newConstraintExpr = newConstraintExpr + X[candidates[i] - 1];
                 bool isValid = newConstraintExpr.isValid();
             }
@@ -90,18 +90,46 @@ int main(int argc, char** argv)
 
     // Solver
     IloCplex solver(model);
-    solver.solve();
     env.setOut(env.getNullStream());
     solver.setOut(env.getNullStream());
+    upperBound = colorizeSeq[0].color;
 
-    solveBnB(solver, X);
+    bool isClique = false;
+    while (!isClique)
+    {
+        solveBnC(solver, X);
 
+        std::cout << "=========INTEGER SOLUTION========" << std::endl;
+        std::cout << "Solution value  = " << objVal << std::endl;
+        std::cout << "Clique: ";
+        for (auto& el : clique)
+            std::cout << el << " ";
+        std::cout << std::endl;
+
+        isClique = true;
+        for (int i = 0; i < clique.size(); i++)
+        {
+            for (int j = i + 1; j < clique.size(); j++)
+            {
+                if (!graph.m_nodes[clique[i]].isNeighbour(clique[j]))
+                {
+                    isClique = false;
+                    std::vector<int> constraintInds = getCandidatesFromConstraintInds(graph, { clique[i], clique[j] });
+                    IloNumExprArg newConstraintExpr = X[constraintInds[0] - 1];
+                    for (int n = 1; n < constraintInds.size(); n++)
+                        newConstraintExpr = newConstraintExpr + X[constraintInds[n] - 1];
+
+                    model.add(newConstraintExpr <= 1);
+                }
+            }
+        }
+    }
 
     std::cout << "=========FINAL SOLUTION========" << std::endl;
     std::cout << "Solution value  = " << objVal << std::endl;
     std::cout << "Clique: ";
-    for (int i = 0; i < clique.size(); i++)
-        std::cout << clique[i] << " ";
+    for (auto& el : clique)
+        std::cout << el << " ";
     std::cout << std::endl;
 }
 
@@ -142,8 +170,6 @@ int solveBnB(IloCplex& solver, IloNumVarArray& X)
         if (solver.getObjValue() > objVal)
         {
             objVal = solver.getObjValue();
-            std::cout << "\n===================================Current Solution:" << std::endl;
-            std::cout << "=====================================objValue: " << objVal << std::endl;
 
             IloNumArray values{ env };
             solver.getValues(values, X);
@@ -151,8 +177,7 @@ int solveBnB(IloCplex& solver, IloNumVarArray& X)
             //env.out() << "Clique: " << std::endl;
             for (int i = 0; i < values.getSize(); i++)
                 if (values[i] > 0) {
-                    clique.emplace_back(i);
-                    std::cout << i << ", ";
+                    clique.emplace_back(i + 1);
                 }
 
             return 0;
@@ -205,4 +230,69 @@ std::vector<int> getCandidatesFromConstraintInds(Graph & graph, std::vector<int>
         std::inserter(candidates, candidates.begin()));
 
     return candidates;
+}
+
+void solveBnC(IloCplex& solver, IloNumVarArray& X)
+{
+    float sumX;
+    do
+    {
+        solver.solve();
+        float curValue = solver.getObjValue();
+        if (upperBound <= curValue)
+            continue;
+
+        IloNumArray values{ env };
+        solver.getValues(values, X);
+        std::vector<int> solution;
+
+        int size = values.getSize();
+        for (int i = 0; i < values.getSize(); i++)
+            if (values[i] > 0)
+                solution.emplace_back(i + 1);
+
+        std::vector<int> S;
+        std::vector<int> maxS;
+        for (int i = 0; i < solution.size(); i++)
+        {
+            S.emplace_back(solution[i]);
+            for (int j = i + 1; j < solution.size(); j++)
+            {
+                bool ind = true;
+                for (auto& el : S)
+                {
+                    if (graph.m_nodes[el].isNeighbour(solution[j]))
+                    {
+                        ind = false;
+                        break;
+                    }
+                }
+
+                if (ind)
+                    S.emplace_back(solution[j]);
+            }
+
+            if (S.size() > maxS.size())
+                std::swap(maxS, S);
+
+            S.clear();
+        }
+
+        sumX = 0.0;
+        for (auto& el : maxS)
+            sumX += values[el - 1];
+
+        S = getCandidatesFromConstraintInds(graph, maxS);
+
+        if (S.empty())
+            break;
+
+        IloNumExprArg newConstraintExpr = X[S[0] - 1];
+        for (int i = 1; i < S.size(); i++)
+            newConstraintExpr = newConstraintExpr + X[S[i] - 1];
+
+        model.add(newConstraintExpr <= 1);
+    } while (sumX > 1.0);
+
+    solveBnB(solver, X);
 }
