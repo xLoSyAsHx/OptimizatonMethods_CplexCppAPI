@@ -21,7 +21,7 @@ namespace GraphUtils
         int val;
         int color = 0;
         std::vector<int> edges;
-        bool isNeighbour(int nodeInd) { return std::equal_range(edges.begin(), edges.end(), nodeInd).first != edges.end(); }
+        bool isNeighbour(int nodeInd) { return *std::equal_range(edges.begin(), edges.end(), nodeInd).first == nodeInd; }
     };
 
     struct Graph
@@ -56,7 +56,7 @@ namespace GraphUtils
         };
 
         virtual std::vector<int> Apply(Graph & graph) override;
-        std::vector<ValEdgeColor> ColorizeGraph(Graph & graph);
+        std::vector<ValEdgeColor> ColorizeGraph(Graph & graph, std::vector<int> & constraintInds);
 
     private:
 
@@ -73,8 +73,6 @@ namespace GraphUtils
         */
         int canExpandClique(Graph& graph, Clique& c, int nodeInd); 
         int canExpandWithoutDeleting(Graph& graph, Clique& c, int nodeInd); // return NodeInd to be added. -1 if can't
-
-        int m_maxCliqueSize;
     };
 }
 
