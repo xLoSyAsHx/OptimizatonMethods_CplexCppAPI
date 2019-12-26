@@ -419,11 +419,6 @@ void ColorisingHeuristic::findCliqueReq(Graph & graph, std::vector<ValEdgeColor>
 		}
 		currentClique.nodes.push_back(toClique.val);
 		if (colorizeSeq[i + 1].color + currentClique.nodes.size() <= maxClique.nodes.size()) {
-            /*/
-            static int counter1 = 0;
-            counter1++;
-            if (counter1 % 1000 == 0) cout << "\nCounter1 == " << counter1;
-            */
 			currentClique.nodes.pop_back();
 			return;
 		}
@@ -435,10 +430,20 @@ void ColorisingHeuristic::findCliqueReq(Graph & graph, std::vector<ValEdgeColor>
 			currentNode.edges.erase(pr.first, pr.second);
 		}
 
-		if (colorizeSeq[i + 1].color == 0 || childGraph.fromGraph(graph, currentNode.edges) == 0) {
+        int childEdgesNum = childGraph.fromGraph(graph, currentNode.edges);
+        if (childEdgesNum + currentClique.nodes.size() <= maxClique.nodes.size()) {
+            currentClique.nodes.pop_back();
+            return;
+        }
+
+		if (colorizeSeq[i + 1].color == 0 || childEdgesNum == 0) {
 			maxClique.nodes = currentClique.nodes;
 			clock_t end = clock();
 			printf("\nTime: %f, clique: %d", (double)(end - start) / CLOCKS_PER_SEC, maxClique.nodes.size());
+            cout << "\nClique: ";
+            for (int i : maxClique.nodes) {
+                cout << i << ", ";
+            }
 			currentClique.nodes.pop_back();
 			return;
 		}
@@ -455,6 +460,8 @@ void ColorisingHeuristic::findCliqueReq(Graph & graph, std::vector<ValEdgeColor>
 			});
 		childColorizeSeq.pop_back();
 		findCliqueReq(childGraph, childColorizeSeq, currentClique, maxClique, clockToCheck);
+        //graph = childGraph;
+        //colorizeSeq = childColorizeSeq;
 		currentClique.nodes.pop_back();
 	}
 
