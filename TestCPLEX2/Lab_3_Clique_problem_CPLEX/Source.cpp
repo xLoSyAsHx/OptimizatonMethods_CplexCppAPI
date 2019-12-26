@@ -7,9 +7,10 @@ IloNum objVal{ 0 };
 IloEnv env;
 IloModel model(env);
 std::vector<int> clique;
+const int REC_LIMIT = 50;
 
 
-int solveBnB(IloCplex& solver, IloNumVarArray& X);
+int solveBnB(IloCplex& solver, IloNumVarArray& X, int ind);
 
 int main(int argc, char** argv)
 {
@@ -26,20 +27,20 @@ int main(int argc, char** argv)
     int num_vertex = graph.m_nodes.size();
 
     // Decision variables
-    IloNumVarArray X{ env, num_vertex, 0, 1, IloNumVar::Type::Float };
+    IloNumVarArray X{ env, num_vertex - 1, 0, 1, IloNumVar::Type::Float };
 
     // Objective
     IloExpr objectiveExpr{ env };
-    for (int i = 0; i < num_vertex; i++)
+    for (int i = 0; i < num_vertex - 1; i++)
         objectiveExpr += X[i];
 
     // Constraints
     IloRangeArray constraints{ env };
 
-    for (int i = 0; i < num_vertex; i++) {
-        std::vector<int> edges = graph.m_nodes[i].edges;
-        for (int j = i + 1; j < num_vertex; j++) {
-            if (std::find(edges.begin(), edges.end(), j) == edges.end())
+    for (int i = 0; i < num_vertex - 1; i++) {
+        std::vector<int> edges = graph.m_nodes[i + 1].edges;
+        for (int j = i + 1; j < num_vertex - 1; j++) {
+            if (std::find(edges.begin(), edges.end(), j + 1) == edges.end())
             {
                 constraints.add(X[i] + X[j] <= 1);
             }
@@ -52,11 +53,12 @@ int main(int argc, char** argv)
 
     // Solver
     IloCplex solver(model);
-    solver.solve();
     env.setOut(env.getNullStream());
     solver.setOut(env.getNullStream());
 
-    solveBnB(solver, X);
+    solver.solve();
+
+    solveBnB(solver, X, 0);
 
 
     std::cout << "=========FINAL SOLUTION========" << std::endl;
@@ -72,29 +74,31 @@ int getDecisionVar(IloCplex& solver, IloNumVarArray& X, bool& isXsInteger)
     isXsInteger = false;
 
     IloNumArray values{ env };
-    IloNum maxVal = 0.0;
+    float maxVal = 0.0f;
     int decI = 0;
 
     solver.getValues(values, X);
     for (int i = 0; i < values.getSize(); i++) {
-        IloNum floatPart = (values[i] - (long)values[i]);
+        float floatPart = (values[i] - (long)values[i]);
 
-        if (floatPart > maxVal)
+        if ((floatPart - maxVal) > FLT_EPSILON)
         {
             maxVal = floatPart;
             decI = i;
         }
     }
 
-    if (maxVal == 0.0)
+    if (abs(maxVal) <= FLT_EPSILON)
         isXsInteger = true;
 
     return decI;
 }
 
 
-int solveBnB(IloCplex& solver, IloNumVarArray& X)
+int solveBnB(IloCplex& solver, IloNumVarArray& X, int ind)
 {
+    if (ind >= REC_LIMIT) return 0;
+
     bool isXsInteger;
     int decisionI = getDecisionVar(solver, X, isXsInteger);
     IloNum maxVal = solver.getValue(X[decisionI]);
@@ -113,7 +117,7 @@ int solveBnB(IloCplex& solver, IloNumVarArray& X)
             //env.out() << "Clique: " << std::endl;
             for (int i = 0; i < values.getSize(); i++)
                 if (values[i] > 0) {
-                    clique.emplace_back(i);
+                    clique.emplace_back(i + 1);
                     //env.out() << i << ", ";
                 }
 
@@ -127,19 +131,19 @@ int solveBnB(IloCplex& solver, IloNumVarArray& X)
     IloRange newConstraint = X[decisionI] <= std::floor(maxVal);
     model.add(newConstraint);
     bool leftSolved = solver.solve();
-    IloNum leftObjValue = solver.getObjValue();
+    float leftObjValue = solver.getObjValue();
 
-    if (leftSolved && leftObjValue > objVal)
-        solveBnB(solver, X);
+    if (leftSolved && (leftObjValue - objVal) > FLT_EPSILON)
+        solveBnB(solver, X, ind + 1);
     model.remove(newConstraint);
 
     // add right branch
     newConstraint = X[decisionI] >= std::ceil(maxVal);
     model.add(newConstraint);
     bool rightSolved = solver.solve();
-    IloNum rightObjValue = solver.getObjValue();
+    float rightObjValue = solver.getObjValue();
 
-    if (rightSolved && rightObjValue > objVal)
-        solveBnB(solver, X);
+    if (rightSolved && (rightObjValue - objVal) > FLT_EPSILON)
+        solveBnB(solver, X, ind + 1);
     model.remove(newConstraint);
 }
