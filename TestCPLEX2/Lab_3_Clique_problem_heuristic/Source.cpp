@@ -29,8 +29,8 @@ int main(int argc, char** argv)
         return -1;
 
     HeuristicInterface* heuristic = new ColorisingHeuristic;
-    std::vector<int> clique = heuristic->Apply(graph);
+    std::vector<int> clique = heuristic->Apply(graph, argv[1]);
 
-    cout << "\nSize: " << clique.size();
+    // cout << "\nSize: " << clique.size();
     return 0;
 }

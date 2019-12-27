@@ -35,13 +35,13 @@ namespace GraphUtils
     class HeuristicInterface
     {
     public:
-        virtual std::vector<int> Apply(Graph& graph) = 0;
+        virtual std::vector<int> Apply(Graph& graph, std::string graphName = "") = 0;
     };
 
     class ColorisingHeuristic : public HeuristicInterface
     {
     public:
-        virtual std::vector<int> Apply(Graph & graph) override;
+        virtual std::vector<int> Apply(Graph & graph, std::string graphName = "") override;
 
     private:
         struct ValEdgeColor

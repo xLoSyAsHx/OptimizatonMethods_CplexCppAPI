@@ -73,7 +73,7 @@ int Graph::fromGraph(Graph& graph, std::vector<int>& nodes) {
 	return count;
 }
 
-std::vector<int> ColorisingHeuristic::Apply(Graph & graph)
+std::vector<int> ColorisingHeuristic::Apply(Graph & graph, std::string graphName)
 {
     m_maxCliqueSize = 0;
 
@@ -103,7 +103,18 @@ std::vector<int> ColorisingHeuristic::Apply(Graph & graph)
     Clique maxClique;
     int timeForSerachInSec = 10;
     findCliqueReq(graph, colorizeSeq, clique, maxClique);
-    printf("\nTime: %f, finished.", (double)(clock() - start) / CLOCKS_PER_SEC);
+    // printf("\nTime: %f, finished.", (double)(clock() - start) / CLOCKS_PER_SEC);
+    // printf("\nClique name: %s\n", graphName);
+
+    std::cout << "\n\n=========FINISHED========" << std::endl;
+    std::cout << "Clique name: " << graphName << std::endl;
+    std::cout << "Solution value  = " << maxClique.nodes.size() << std::endl;
+    std::cout << "Clique: ";
+    for (auto& el : maxClique.nodes)
+        std::cout << el << " ";
+    std::cout << std::endl;
+    printf("Time: %f.", (double)(clock() - start) / CLOCKS_PER_SEC);
+    std::cout << std::endl;
 
     /*
     The idea was to firstly, launch findCliqueReq on several minutes, than cancel it by timeout,
