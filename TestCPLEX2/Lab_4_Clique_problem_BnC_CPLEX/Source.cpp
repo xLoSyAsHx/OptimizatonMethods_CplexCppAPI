@@ -7,10 +7,12 @@
 #include <set>
 
 #define DEBUG_ENABLE 0
+#define DEBUG_VARIABLES_ENABLE 0
 #define ALL_PRINT_ENABLE 1
 
 #define MAX_BNB_RECURSIVE_DEPTH 30
 static int curBnbDepth = 0;
+static std::vector<int> asd;
 
 using namespace GraphUtils;
 using std::cout;
@@ -20,32 +22,35 @@ IloEnv env;
 IloModel model(env);
 Graph graph;
 std::vector<int> clique;
+#if DEBUG_VARIABLES_ENABLE
+std::vector<std::string> g_lastAddedConstr;
+std::vector<double> g_lastAddedObjVal;
+#endif
 
 static const int CANDIDATE_ARRAY_SIZE = 2;
 
 std::vector<int> g_allNodeIndexes;
+std::vector<int> g_allNodeDegrees;
+std::vector<int> g_allNodeDegreesSorted;
 std::shared_ptr<ColorisingHeuristic> g_pHeurInterface;
 int upperBound;
 
 int solveBnB(IloCplex& solver, IloNumVarArray& X);
-void solveBnC(IloCplex& solver, IloNumVarArray& X);
+void solveBnC2(IloCplex& solver, IloNumVarArray& X);
+void getConstraints(Graph& graph, std::vector<int>& maxS);
 
-std::array<std::vector<int>, CANDIDATE_ARRAY_SIZE> getCandidatesFromConstraintInds(
-    Graph& graph,
-    std::shared_ptr<ColorisingHeuristic> g_pHeurInterface,
-    std::vector<int> constraintInds);
-
-std::vector<int> getMaxIndependentSet(
-    Graph& graph,
-    int nodeInd);
-
-IloNumExprArg make_constraint(IloNumVarArray & X, std::vector<int> & vecIndexes, bool enablePrint = false)
+IloNumExprArg make_constraint(IloNumVarArray & X, std::vector<int> & vecIndexes, bool enablePrint = true)
 {
     IloNumExprArg newConstraintExpr = X[vecIndexes[0] - 1];
+    std::string tmp = std::to_string(vecIndexes[0]);
     for (int i = 1; i < vecIndexes.size(); ++i)
     {
         newConstraintExpr = newConstraintExpr + X[vecIndexes[i] - 1];
+        tmp += " + " + std::to_string(vecIndexes[i]);
     }
+#if DEBUG_VARIABLES_ENABLE
+    g_lastAddedConstr.push_back(tmp);
+#endif
 
 #if DEBUG_ENABLE
     if (enablePrint)
@@ -73,8 +78,18 @@ int main(int argc, char** argv)
 
     if (graph.loadFromFile(argv[1]) != 0)
         return -1;
+
     for (int i = 1; i < graph.m_nodes.size(); ++i)
+    {
         g_allNodeIndexes.emplace_back(i);
+        g_allNodeDegrees.emplace_back(graph.m_nodes[i].edges.size());
+    }
+    g_allNodeDegreesSorted = g_allNodeIndexes;
+    std::sort(g_allNodeDegreesSorted.begin(), g_allNodeDegreesSorted.end(), [](auto& lhd, auto& rhd) {
+        return graph.m_nodes[lhd].edges.size() < graph.m_nodes[rhd].edges.size();
+     });
+
+    
 
     int num_vertex = graph.m_nodes.size();
     
@@ -105,10 +120,10 @@ int main(int argc, char** argv)
             if (el.val == colorizeSeq.back().val)
                 constraintInds.emplace_back(el.val);
 
-            std::array<std::vector<int>, CANDIDATE_ARRAY_SIZE> candidates = getCandidatesFromConstraintInds(graph, g_pHeurInterface, constraintInds);
-            if (candidates[0].empty())
+            std::sort(constraintInds.begin(), constraintInds.end());
+            getConstraints(graph, constraintInds);
+            if (constraintInds.empty())
             {
-                constraints.add(make_constraint(X, constraintInds) <= 1);
                 constraintInds.clear();
 
                 curColor = el.color;
@@ -116,12 +131,7 @@ int main(int argc, char** argv)
                 continue;
             }
 
-            for (auto& el : candidates)
-            {
-                if (!el.empty())
-                    constraints.add(make_constraint(X, el) <= 1);
-            }
-
+            constraints.add(make_constraint(X, constraintInds) <= 1);
             constraintInds.clear();
 
             curColor = el.color;
@@ -132,26 +142,6 @@ int main(int argc, char** argv)
             constraintInds.emplace_back(el.val);
         }
     }
-
-
-    std::set<std::vector<int>> constraintIndxSet;
-    for (int i = 1; i < graph.m_nodes.size(); ++i)
-        constraintIndxSet.insert(getMaxIndependentSet(graph, i));
-
-    for (auto el : constraintIndxSet)
-    {
-        if (el.empty())
-            continue;
-
-        constraints.add(make_constraint(X, el) <= 1);
-    }
-
-    /*
-    tmp.clear();
-    for (int i = 1; i < graph.m_nodes.size(); ++i)
-        tmp.emplace_back(i);
-    constraints.add(make_constraint(X, tmp) <= colorizeSeq[0].color);
-    */
 
     // Model
     model.add(IloMaximize(env, objectiveExpr));
@@ -169,7 +159,15 @@ int main(int argc, char** argv)
     bool isClique = false;
     while (!isClique)
     {
-        solveBnC(solver, X);
+        try
+        {
+            solveBnC2(solver, X);
+        }
+        catch (IloException e)
+        {
+            std::cout << "\n\n\nExceptions:\n" << e << "\n";
+            exit(1);
+        }
 
 #if ALL_PRINT_ENABLE
         std::cout << "=========INTEGER SOLUTION========" << std::endl;
@@ -183,6 +181,7 @@ int main(int argc, char** argv)
 
         int counter = 0;
         isClique = true;
+
         for (int i = 0; i < clique.size(); i++)
         {
             for (int j = i + 1; j < clique.size(); j++)
@@ -190,22 +189,15 @@ int main(int argc, char** argv)
                 if (!graph.m_nodes[clique[i]].isNeighbour(clique[j]))
                 {
                     isClique = false;
-                    std::array<std::vector<int>, CANDIDATE_ARRAY_SIZE> candidates = getCandidatesFromConstraintInds(
-                        graph, g_pHeurInterface, { clique[i], clique[j] }
-                    );
-
-                    for (auto& el : candidates)
-                    {
-                        if (!el.empty())
-                        {
-                            model.add(make_constraint(X, el, counter < 5) <= 1);
-                            counter++;
-                        }
-                    }
+                    std::vector<int> candidates = { clique[i], clique[j] };
+                    getConstraints(graph, candidates);
+                    model.add(make_constraint(X, candidates, counter < 5) <= 1);
+                    counter++;
                 }
             }
         }
 
+        clique_check:
         if (isClique == false)
         {
             objVal = 0.0f;
@@ -216,6 +208,7 @@ int main(int argc, char** argv)
     auto end = std::chrono::high_resolution_clock::now();
 
     std::cout << "=========FINAL SOLUTION========" << std::endl;
+    std::cout << "Clique name: " << argv[1] << std::endl;
     std::cout << "Solution value  = " << objVal << std::endl;
     std::cout << "Clique: ";
     for (auto& el : clique)
@@ -230,21 +223,21 @@ int getDecisionVar(IloCplex& solver, IloNumVarArray& X, bool& isXsInteger)
     isXsInteger = false;
 
     IloNumArray values{ env };
-    IloNum minVal = 0.5;
+    IloNum maxVal = 0.0;
     int decI = 0;
 
     solver.getValues(values, X);
     for (int i = 0; i < values.getSize(); i++) {
         IloNum floatPart = (values[i] - (long)values[i]);
 
-        if (abs(floatPart - 0.5) < minVal && (floatPart > 0.05f || floatPart < 0.95f))
+        if (floatPart > maxVal && (floatPart > FLT_EPSILON || floatPart < 1.0 - FLT_EPSILON))
         {
-            minVal = abs(floatPart - 0.5);
+            maxVal = floatPart;
             decI = i;
         }
     }
 
-    if (minVal == 0.5)
+    if (maxVal == 0.0)
         isXsInteger = true;
 
     return decI;
@@ -252,13 +245,6 @@ int getDecisionVar(IloCplex& solver, IloNumVarArray& X, bool& isXsInteger)
 
 int solveBnB(IloCplex& solver, IloNumVarArray& X)
 {
-    ++curBnbDepth;
-    if (curBnbDepth > MAX_BNB_RECURSIVE_DEPTH)
-    {
-        --curBnbDepth;
-        return 0;
-    }
-
     bool isXsInteger;
 
     IloNumArray values{ env };
@@ -269,185 +255,99 @@ int solveBnB(IloCplex& solver, IloNumVarArray& X)
     if (isXsInteger)
     {
         IloNum newObjVal = solver.getObjValue();
-        if (solver.getObjValue() > objVal + 0.001f)
+        if (abs(solver.getObjValue() - objVal) > FLT_EPSILON)
         {
             objVal = solver.getObjValue();
 
             IloNumArray values{ env };
             solver.getValues(values, X);
             clique.clear();
-            //env.out() << "Clique: " << std::endl;
             for (int i = 0; i < values.getSize(); i++)
-                if (values[i] > 0.05f) {
+                if (values[i] > FLT_EPSILON) {
                     clique.emplace_back(i + 1);
                 }
 
-            --curBnbDepth;
             return 0;
         }
     }
 
     // go to branches recursively
-
     // add left branch
-    IloRange newConstraint = X[decisionI] == 0;// <= std::floor(maxVal);
+    IloRange newConstraint = X[decisionI]  <= std::floor(maxVal);
     model.add(newConstraint);
     bool leftSolved = solver.solve();
     IloNum leftObjValue = solver.getObjValue();
 
-    int retVal = 1;
-    if (leftSolved && leftObjValue > objVal + 0.01)
-        solveBnB(solver, X);
+    if (leftSolved && abs(leftObjValue - objVal) > FLT_EPSILON)
+        solveBnC2(solver, X);
     model.remove(newConstraint);
-    if (retVal == 0)
-    {
-        --curBnbDepth;
-        return 0;
-    }
 
     // add right branch
-    newConstraint = X[decisionI] == 1;// >= std::ceil(maxVal);
+    newConstraint = X[decisionI] >= std::ceil(maxVal);
     model.add(newConstraint);
     bool rightSolved = solver.solve();
     IloNum rightObjValue = solver.getObjValue();
 
-    if (rightSolved && rightObjValue > objVal + 0.01)
-        solveBnB(solver, X);
+    if (rightSolved && abs(rightObjValue - objVal) > FLT_EPSILON)
+        solveBnC2(solver, X);
     model.remove(newConstraint);
-    if (retVal == 0)
-    {
-        --curBnbDepth;
-        return 0;
-    }
 
-    --curBnbDepth;
     return 0;
 }
 
-std::array<std::vector<int>, CANDIDATE_ARRAY_SIZE> getCandidatesFromConstraintInds(Graph & graph, std::shared_ptr<ColorisingHeuristic> g_pHeurInterface, std::vector<int> constraintInds)
+void getConstraints(Graph& graph, std::vector<int>& maxS)
 {
-    std::vector<int> neighbours;
-    int neighbourSize = 0;
-    for (int nodeInd : constraintInds)
-        neighbourSize += graph.m_nodes[nodeInd].edges.size();
-    neighbours.resize(neighbourSize + constraintInds.size());
-
-    neighbourSize = 0;
-    for (int nodeInd : constraintInds)
-    {
-        auto& edges = graph.m_nodes[nodeInd].edges;
-        std::copy(edges.begin(), edges.end(), neighbours.begin() + neighbourSize);
-        neighbourSize += edges.size();
-    }
-    std::copy(constraintInds.begin(), constraintInds.end(), neighbours.begin() + neighbourSize);
-    std::sort(neighbours.begin(), neighbours.end());
-    neighbours.resize(
-        std::distance(neighbours.begin(), std::unique(neighbours.begin(), neighbours.end()))
-    );
-
-    auto colorizeSeq = g_pHeurInterface->ColorizeGraph(graph, neighbours);
-    std::sort(colorizeSeq.begin(), colorizeSeq.end(), [](auto& lhd, auto& rhd) {
-        return lhd.color < rhd.color;
+    // return;
+    std::vector<int> candidates;
+    std::copy_if(g_allNodeDegreesSorted.begin(), g_allNodeDegreesSorted.end(), std::back_inserter(candidates),
+        [&maxS](auto& el) {
+            auto it = std::equal_range(maxS.begin(), maxS.end(), el).first;
+            if (it == maxS.end() || *it != el) return true;
+            return false;
     });
 
-    if (colorizeSeq.empty())
-        return std::array<std::vector<int>, CANDIDATE_ARRAY_SIZE>();
-
-    struct DistanceArray {
-        int size;
-        std::pair<decltype(colorizeSeq)::iterator, decltype(colorizeSeq)::iterator> range; // iterators to range begin and end
-    };
-    std::array<DistanceArray, CANDIDATE_ARRAY_SIZE> maxDistances{ 0 };
-    for (int color = 1; color <= colorizeSeq.back().color; ++color)
+    for (auto& elToAdd : candidates)
     {
-        ColorisingHeuristic::ValEdgeColor valEdgeColor = { -1, color, -1 };
-        auto range = std::equal_range(colorizeSeq.begin(), colorizeSeq.end(), valEdgeColor, [](const auto& lhd, const auto& rhd) {
-            return lhd.color < rhd.color;
-        });
-        int size = std::distance(range.first, range.second);
-
-        for (int i = 0; i < CANDIDATE_ARRAY_SIZE; ++i)
+        bool canAdd = true;
+        for (auto& el : maxS)
         {
-            if (size > maxDistances[i].size)
+            if (graph.m_nodes[el].isNeighbour(elToAdd))
             {
-                if (i != CANDIDATE_ARRAY_SIZE)
-                    std::copy(maxDistances.begin() + i, maxDistances.end() - 1, maxDistances.begin() + i + 1);
-                maxDistances[i].size = size;
-                maxDistances[i].range = range;
+                canAdd = false;
                 break;
             }
         }
-    }
 
-#if DEBUG_ENABLE && 0
-    std::cout << "\n\ngetCandidatesFromConstraintInds result:\n";
-    for (int i = 0; i < CANDIDATE_ARRAY_SIZE; ++i)
-    {
-        auto range = maxDistances[i].range;
-        std::for_each(range.first, range.second, [](const auto& el) {
-            std::cout << el.val << " ";
-        });
-        std::cout << "\n";
+        if (canAdd)
+            maxS.push_back(elToAdd);
     }
-    std::cout << "\n\n";
-#endif
-
-    std::array<std::vector<int>, CANDIDATE_ARRAY_SIZE> candidates;
-    for (int i = 0; i < CANDIDATE_ARRAY_SIZE; ++i)
-    {
-        if (maxDistances[i].size)
-        {
-            candidates[i].resize(maxDistances[i].size + constraintInds.size());
-
-            auto range = maxDistances[i].range;
-            auto it_out = candidates[i].begin();
-            std::for_each(range.first, range.second, [&it_out](const auto& el) {
-                *it_out = el.val;
-                ++it_out;
-            });
-            std::copy(constraintInds.begin(), constraintInds.end(), it_out);
-        }
-    }
-    return candidates;
 }
 
-std::vector<int> getMaxIndependentSet(Graph& graph, int nodeInd)
-{
-    std::vector<int> neighbours{ graph.m_nodes[nodeInd].edges };
-    neighbours.push_back(nodeInd);
-
-    std::vector<int> vMaxIndepNodeIndx();
-    
-    std::vector<int> candidatesTmp;
-    std::vector<int> constraintInds({ nodeInd });
-    std::sort(neighbours.begin(), neighbours.end());
-    std::set_difference(g_allNodeIndexes.begin(), g_allNodeIndexes.end(),
-        neighbours.begin(), neighbours.end(),
-        std::inserter(candidatesTmp, candidatesTmp.begin()));
-
-    for (int i = 0; i < candidatesTmp.size(); i++) {
-        bool isNeighbour = false;
-        for (int j = 0; j < constraintInds.size(); j++) {
-            isNeighbour = isNeighbour || graph.m_nodes[candidatesTmp[i]].isNeighbour(constraintInds[j]);
-        }
-        if (!isNeighbour) {
-            constraintInds.push_back(candidatesTmp[i]);
-        }
-    }
-
-    std::sort(constraintInds.begin(), constraintInds.end());
-    return constraintInds;
-}
-
-void solveBnC(IloCplex& solver, IloNumVarArray& X)
+void solveBnC2(IloCplex& solver, IloNumVarArray& X)
 {
     static int asd = 0;
     float sumX = 0.0f;
+    std::vector<double> lastAddedObjVals;
     do
     {
         solver.solve();
         float curValue = solver.getObjValue();
+#if DEBUG_VARIABLES_ENABLE
+        g_lastAddedObjVal.push_back(curValue);
+#endif
+        lastAddedObjVals.push_back(curValue);
         asd++;
+
+        if (lastAddedObjVals.size() == 15)
+        {
+            double sum = 0.0;
+            for (auto& el : lastAddedObjVals) sum += el;
+
+            double mean = sum / lastAddedObjVals.size();
+            if (abs(abs(lastAddedObjVals.front() - mean) - abs(lastAddedObjVals.back() - mean)) < 0.5)
+                break;
+        }
+
 #if DEBUG_ENABLE
         {
             IloNumArray values{ env };
@@ -471,7 +371,7 @@ void solveBnC(IloCplex& solver, IloNumVarArray& X)
 
         int size = values.getSize();
         for (int i = 0; i < values.getSize(); i++)
-            if (values[i] > 0.1f)
+            if (values[i] > FLT_EPSILON)
                 solution.emplace_back(i + 1);
 
         std::vector<int> S;
@@ -502,24 +402,21 @@ void solveBnC(IloCplex& solver, IloNumVarArray& X)
         }
 
         sumX = 0.0;
+        std::sort(maxS.begin(), maxS.end());
         for (auto& el : maxS)
             sumX += values[el - 1];
 
-        if (sumX <= 1.0f)
+        if (sumX <= 1.01f)
             break;
 
-        std::array<std::vector<int>, CANDIDATE_ARRAY_SIZE> candidates = getCandidatesFromConstraintInds(graph, g_pHeurInterface, maxS);
+        std::sort(maxS.begin(), maxS.begin());
+        getConstraints(graph, maxS);
 
-        if (candidates[0].empty())
+        if (maxS.empty())
             break;
 
-        for (auto& el : candidates)
-        {
-            if (!el.empty())
-                model.add(make_constraint(X, el) <= 1);
-        }
+        model.add(make_constraint(X, maxS) <= 1);
     } while (sumX > 1.0f);
 
     solveBnB(solver, X);
 }
-
